@@ -5,22 +5,27 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { ConfigService } from '@nestjs/config';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
-
+import { Logger } from 'nestjs-pino';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
   app.use(helmet()); // segurança
   app.use(compression()); // gzip
-  app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalFilters(new AllExceptionsFilter(), new PrismaExceptionFilter());
+  app.useLogger(app.get(Logger));
   app.enableCors({
     origin: true,
     credentials: true,
   });
 
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', {
+    exclude: ['/health', '/docs', '/docs-json'],
+  });
   app.enableVersioning({
     type: VersioningType.URI,
+    defaultVersion: '1',
   });
 
   app.useGlobalPipes(
@@ -41,11 +46,16 @@ async function bootstrap() {
       .addBearerAuth()
       .build();
     const document = SwaggerModule.createDocument(app, docConfig);
-    SwaggerModule.setup('docs', app, document);
+    SwaggerModule.setup('docs', app, document, {
+      useGlobalPrefix: false,
+    });
   }
 
   const port = config.get<number>('PORT') ?? 3000;
   await app.listen(port);
-  console.log(`🚀 API a correr em http://localhost:${port}`);
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  console.error('Failed to start application:', error);
+  process.exit(1);
+});
