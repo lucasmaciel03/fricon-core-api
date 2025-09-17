@@ -17,7 +17,9 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "db:truncate:dry": "DRY_RUN=1 ALLOW_DATA_WIPE=1 NODE_ENV=development ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/truncate.ts",
+    "db:truncate": "ALLOW_DATA_WIPE=1 NODE_ENV=development ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/truncate.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -78,5 +80,8 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seeds/seed.ts"
   }
 }
