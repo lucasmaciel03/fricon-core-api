@@ -12,4 +12,533 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["public", "core", "auth", "org", "log"]
+}
+
+// =============================================================================
+// 📋 ENUMS
+// =============================================================================
+
+/// Enum para ações de auditoria do sistema
+enum AuditAction {
+  INSERT
+  UPDATE
+  DELETE
+
+  @@map("audit_action")
+  @@schema("public")
+}
+
+// =============================================================================
+// 👤 USERS & AUTHENTICATION MODELS
+// =============================================================================
+
+/// Status dos utilizadores (ativo, inativo, pendente, etc.)
+model UserStatus {
+  statusId          Int    @id @default(autoincrement()) @map("status_id")
+  statusName        String @unique @map("status_name") @db.VarChar(50)
+  statusDescription String @map("status_description") @db.Text
+
+  // Relations
+  users User[]
+
+  @@map("tbl_user_status")
+  @@schema("core")
+  @@index([statusName])
+}
+
+/// Utilizadores principais do sistema
+model User {
+  userId       Int       @id @default(autoincrement()) @map("user_id")
+  username     String    @unique @db.VarChar(50)
+  firstname    String    @map("firstname") @db.VarChar(100)
+  lastname     String    @map("lastname") @db.VarChar(100)
+  email        String?   @db.VarChar(255) // Opcional - nem todos têm email
+  passwordHash String?   @map("password_hash") @db.VarChar(255) // Opcional - definido no primeiro acesso
+  userStatusId Int       @map("user_status_id")
+  userIsLocked Boolean   @default(false) @map("user_is_locked")
+  userAvatar   String?   @map("user_avatar") @db.VarChar(500)
+  userCreatedAt DateTime @default(now()) @map("user_created_at")
+  userUpdatedAt DateTime @updatedAt @map("user_updated_at")
+  createdBy    Int?      @map("created_by")
+  updatedBy    Int?      @map("updated_by")
+
+  // Relations para auditoria de criação/atualização
+  creator      User?     @relation("UserCreated", fields: [createdBy], references: [userId])
+  updater      User?     @relation("UserUpdated", fields: [updatedBy], references: [userId])
+  userLastLogin DateTime? @map("user_last_login")
+  deletedAt    DateTime? @map("deleted_at") // Soft delete
+  version      Int       @default(1) // Optimistic concurrency control
+
+  // Relations
+  userStatus UserStatus @relation(fields: [userStatusId], references: [statusId], onDelete: Restrict)
+  
+  // User Roles (Many-to-Many)
+  userRoles UserRole[]
+  
+  // Organization Relations (Many-to-Many)
+  userFactories  UserFactory[]
+  userTeams      UserTeam[]
+  userDepartments UserDepartment[]
+  userWarehouses UserWarehouse[]
+  userSetors     UserSetor[]
+  
+  // Security & Logs
+  loginAttempts       LoginAttempt[]
+  activityLogs        UserActivityLog[]
+  passwordResetLogs   PasswordResetLog[]
+  passwordHistory     UserPasswordHistory[]
+  userSessions        UserSession[]
+  mfaTokens           MfaToken[]
+  mfaFactors          MfaFactor[]
+  auditLogs           AuditLog[]
+
+  // Relations inversas para auditoria de criação/atualização
+  usersCreated        User[]      @relation("UserCreated")
+  usersUpdated        User[]      @relation("UserUpdated")
+  factoriesCreated    Factory[]   @relation("FactoryCreated")
+  factoriesUpdated    Factory[]   @relation("FactoryUpdated")
+  teamsCreated        Team[]      @relation("TeamCreated")
+  teamsUpdated        Team[]      @relation("TeamUpdated")
+  departmentsCreated  Department[] @relation("DepartmentCreated")
+  departmentsUpdated  Department[] @relation("DepartmentUpdated")
+  warehousesCreated   Warehouse[] @relation("WarehouseCreated")
+  warehousesUpdated   Warehouse[] @relation("WarehouseUpdated")
+  setorsCreated       Setor[]     @relation("SetorCreated")
+  setorsUpdated       Setor[]     @relation("SetorUpdated")
+
+  @@map("tbl_users")
+  @@schema("core")
+  @@index([email])
+  @@index([userStatusId])
+  @@index([userCreatedAt])
+  @@index([deletedAt])
+  // Índices únicos parciais (WHERE deleted_at IS NULL) não são suportados diretamente pelo Prisma. Devem ser criados manualmente via SQL após a migration.
+  @@index([userStatusId, userIsLocked])
+}
+
+/// Roles/Funções do sistema
+model Role {
+  roleId      Int    @id @default(autoincrement()) @map("role_id")
+  roleName    String @unique @map("role_name") @db.VarChar(100)
+  description String @db.Text
+
+  // Relations
+  userRoles UserRole[]
+
+  @@map("tbl_roles")
+  @@schema("core")
+  @@index([roleName])
+}
+
+/// Relação Many-to-Many entre Users e Roles
+model UserRole {
+  id       Int      @id @default(autoincrement()) // Para futura extensibilidade
+  userId   Int      @map("user_id")
+  roleId   Int      @map("role_id")
+  assignedAt DateTime @default(now()) @map("assigned_at") // Timestamp da atribuição
+
+  // Relations
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [roleId], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("tbl_user_roles")
+  @@schema("core")
+  @@index([assignedAt])
+}
+
+// =============================================================================
+// 🏭 ORGANIZATION MODELS
+// =============================================================================
+
+/// Fábricas/Instalações da empresa
+model Factory {
+  factoryId Int    @id @default(autoincrement()) @map("factory_id")
+  name      String @db.VarChar(200)
+  location  String @db.VarChar(300)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy Int?    @map("created_by")
+  updatedBy Int?    @map("updated_by")
+
+  creator   User?   @relation("FactoryCreated", fields: [createdBy], references: [userId])
+  updater   User?   @relation("FactoryUpdated", fields: [updatedBy], references: [userId])
+
+  // Relations
+  teams       Team[]
+  departments Department[]
+  warehouses  Warehouse[]
+  setors      Setor[]
+  
+  // User associations
+  userFactories UserFactory[]
+
+  @@map("tbl_factories")
+  @@schema("org")
+  @@index([name])
+}
+
+/// Equipas dentro das fábricas
+model Team {
+  teamId    Int    @id @default(autoincrement()) @map("team_id")
+  factoryId Int    @map("factory_id")
+  name      String @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy Int?    @map("created_by")
+  updatedBy Int?    @map("updated_by")
+
+  creator   User?   @relation("TeamCreated", fields: [createdBy], references: [userId])
+  updater   User?   @relation("TeamUpdated", fields: [updatedBy], references: [userId])
+
+  // Relations
+  factory   Factory    @relation(fields: [factoryId], references: [factoryId], onDelete: Cascade)
+  userTeams UserTeam[]
+
+  @@map("tbl_teams")
+  @@schema("org")
+  @@index([factoryId])
+  @@index([name])
+}
+
+/// Departamentos dentro das fábricas
+model Department {
+  depId     Int    @id @default(autoincrement()) @map("dep_id")
+  factoryId Int    @map("factory_id")
+  name      String @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy Int?    @map("created_by")
+  updatedBy Int?    @map("updated_by")
+
+  creator   User?   @relation("DepartmentCreated", fields: [createdBy], references: [userId])
+  updater   User?   @relation("DepartmentUpdated", fields: [updatedBy], references: [userId])
+
+  // Relations
+  factory         Factory          @relation(fields: [factoryId], references: [factoryId], onDelete: Cascade)
+  userDepartments UserDepartment[]
+
+  @@map("tbl_departments")
+  @@schema("org")
+  @@index([factoryId])
+  @@index([name])
+}
+
+/// Armazéns dentro das fábricas
+model Warehouse {
+  warehouseId Int    @id @default(autoincrement()) @map("warehouse_id")
+  factoryId   Int    @map("factory_id")
+  code        String @db.VarChar(50)
+  name        String @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy   Int?    @map("created_by")
+  updatedBy   Int?    @map("updated_by")
+
+  creator     User?   @relation("WarehouseCreated", fields: [createdBy], references: [userId])
+  updater     User?   @relation("WarehouseUpdated", fields: [updatedBy], references: [userId])
+
+  // Relations
+  factory        Factory         @relation(fields: [factoryId], references: [factoryId], onDelete: Cascade)
+  userWarehouses UserWarehouse[]
+
+  @@map("tbl_warehouses")
+  @@schema("org")
+  @@unique([factoryId, code])
+  @@index([factoryId])
+  @@index([code])
+}
+
+/// Setores dentro das fábricas
+model Setor {
+  setorId   Int     @id @default(autoincrement()) @map("setor_id")
+  factoryId Int     @map("factory_id")
+  name      String  @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy Int?    @map("created_by")
+  updatedBy Int?    @map("updated_by")
+
+  creator   User?   @relation("SetorCreated", fields: [createdBy], references: [userId])
+  updater   User?   @relation("SetorUpdated", fields: [updatedBy], references: [userId])
+  acronym   String? @db.VarChar(10) // Sigla/Acrônimo do setor
+
+  // Relations
+  factory    Factory     @relation(fields: [factoryId], references: [factoryId], onDelete: Cascade)
+  userSetors UserSetor[]
+
+  @@map("tbl_setors")
+  @@schema("org")
+  @@index([factoryId])
+  @@index([name])
+  @@index([acronym])
+}
+
+// =============================================================================
+// 🔗 USER-ORGANIZATION ASSOCIATIONS (Many-to-Many)
+// =============================================================================
+
+/// Associação Many-to-Many: Users ↔ Factories
+model UserFactory {
+  id        Int      @id @default(autoincrement()) // Para futura extensibilidade
+  userId    Int      @map("user_id")
+  factoryId Int      @map("factory_id")
+  assignedAt DateTime @default(now()) @map("assigned_at") // Timestamp da atribuição
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  factory Factory @relation(fields: [factoryId], references: [factoryId], onDelete: Cascade)
+
+  @@unique([userId, factoryId])
+  @@map("tbl_user_factories")
+  @@schema("org")
+  @@index([assignedAt])
+}
+
+/// Associação Many-to-Many: Users ↔ Teams
+model UserTeam {
+  id        Int      @id @default(autoincrement()) // Para futura extensibilidade
+  userId    Int      @map("user_id")
+  teamId    Int      @map("team_id")
+  assignedAt DateTime @default(now()) @map("assigned_at") // Timestamp da atribuição
+
+  // Relations
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [teamId], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@map("tbl_user_teams")
+  @@schema("org")
+  @@index([assignedAt])
+}
+
+/// Associação Many-to-Many: Users ↔ Departments
+model UserDepartment {
+  id        Int      @id @default(autoincrement()) // Para futura extensibilidade
+  userId    Int      @map("user_id")
+  depId     Int      @map("dep_id")
+  assignedAt DateTime @default(now()) @map("assigned_at") // Timestamp da atribuição
+
+  // Relations
+  user       User       @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  department Department @relation(fields: [depId], references: [depId], onDelete: Cascade)
+
+  @@unique([userId, depId])
+  @@map("tbl_user_departments")
+  @@schema("org")
+  @@index([assignedAt])
+}
+
+/// Associação Many-to-Many: Users ↔ Warehouses
+model UserWarehouse {
+  id         Int      @id @default(autoincrement()) // Para futura extensibilidade
+  userId     Int      @map("user_id")
+  warehouseId Int     @map("warehouse_id")
+  assignedAt DateTime @default(now()) @map("assigned_at") // Timestamp da atribuição
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [warehouseId], onDelete: Cascade)
+
+  @@unique([userId, warehouseId])
+  @@map("tbl_user_warehouses")
+  @@schema("org")
+  @@index([assignedAt])
+}
+
+/// Associação Many-to-Many: Users ↔ Setors
+model UserSetor {
+  id        Int      @id @default(autoincrement()) // Para futura extensibilidade
+  userId    Int      @map("user_id")
+  setorId   Int      @map("setor_id")
+  assignedAt DateTime @default(now()) @map("assigned_at") // Timestamp da atribuição
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  setor Setor @relation(fields: [setorId], references: [setorId], onDelete: Cascade)
+
+  @@unique([userId, setorId])
+  @@map("tbl_user_setors")
+  @@schema("org")
+  @@index([assignedAt])
+}
+
+// =============================================================================
+// 🛡️ SECURITY & AUDIT MODELS
+// =============================================================================
+
+/// Log de tentativas de login (sucesso e falhadas)
+model LoginAttempt {
+  attemptId     Int      @id @default(autoincrement()) @map("attempt_id")
+  userId        Int?     @map("user_id")
+  attemptAt     DateTime @default(now()) @map("attempt_at")
+  isSuccessful  Boolean  @map("is_successful")
+  action        String   @db.VarChar(100)
+  ipAddress     String   @map("ip_address") @db.VarChar(45) // IPv4/IPv6 compatível
+  userAgent     String?  @map("user_agent") @db.Text
+
+  // Relations
+  user User? @relation(fields: [userId], references: [userId], onDelete: SetNull)
+
+  @@map("tbl_login_attempts")
+  @@schema("auth")
+  @@index([userId])
+  @@index([attemptAt])
+  @@index([ipAddress])
+  @@index([isSuccessful])
+  @@index([action]) // Índice para análise forense
+}
+
+/// Log de atividades dos utilizadores
+model UserActivityLog {
+  logId      Int      @id @default(autoincrement()) @map("log_id")
+  userId     Int      @map("user_id")
+  action     String   @db.VarChar(200)
+  entityId   Int?     @map("entity_id")
+  entityType String?  @map("entity_type") @db.VarChar(100)
+  actionAt   DateTime @default(now()) @map("action_at")
+  ipAddress  String   @map("ip_address") @db.VarChar(45)
+  sessionId  String?  @map("session_id")
+  correlationId String? @map("correlation_id") @db.VarChar(100)
+  userAgent  String?  @map("user_agent") @db.Text
+
+  // Relations
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  session UserSession? @relation("SessionActivityLogs", fields: [sessionId], references: [sessionId], onDelete: SetNull)
+
+  @@map("tbl_user_activity_logs")
+  @@schema("log")
+  @@index([userId])
+  @@index([actionAt])
+  @@index([action])
+  @@index([entityType])
+}
+
+/// Log de reset de passwords
+model PasswordResetLog {
+  resetId    Int      @id @default(autoincrement()) @map("reset_id")
+  userId     Int      @map("user_id")
+  resetToken String   @map("reset_token") @db.VarChar(255)
+  requestAt  DateTime @default(now()) @map("request_at")
+  ipAddress  String   @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.Text
+
+  // Relations
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("tbl_password_reset_logs")
+  @@schema("auth")
+  @@index([userId])
+  @@index([resetToken])
+  @@index([requestAt])
+}
+
+/// Histórico de passwords dos utilizadores
+model UserPasswordHistory {
+  historyId    Int      @id @default(autoincrement()) @map("history_id")
+  userId       Int      @map("user_id")
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  changedAt    DateTime @default(now()) @map("changed_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("tbl_user_password_history")
+  @@schema("log")
+  @@index([userId])
+  @@index([changedAt])
+}
+
+/// Sessões ativas dos utilizadores (JWT tracking)
+model UserSession {
+  sessionId String    @id @default(cuid()) @map("session_id")
+  userId    Int       @map("user_id")
+  jwtId     String    @unique @map("jwt_id") @db.VarChar(255)
+  loginAt   DateTime  @default(now()) @map("login_at")
+  logoutAt  DateTime? @map("logout_at")
+  isRevoked Boolean   @default(false) @map("is_revoked")
+  ipAddress String    @map("ip_address") @db.VarChar(45)
+  userAgent String?   @map("user_agent") @db.Text
+  refreshTokenHash String? @map("refresh_token_hash") @db.VarChar(255)
+  rotatedFromJti String? @map("rotated_from_jti") @db.VarChar(255)
+  expiresAt DateTime? @map("expires_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  activityLogs UserActivityLog[] @relation("SessionActivityLogs")
+
+  @@map("tbl_user_sessions")
+  @@schema("auth")
+  @@index([userId])
+  @@index([jwtId])
+  @@index([loginAt])
+  @@index([isRevoked])
+  @@index([userId, isRevoked])
+  @@index([expiresAt])
+}
+
+/// Tokens MFA temporários (OTP)
+model MfaToken {
+  mfaId     Int      @id @default(autoincrement()) @map("mfa_id")
+  userId    Int      @map("user_id")
+  token     String   @unique @db.VarChar(255) // Único para evitar colisões
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("tbl_mfa_tokens")
+  @@schema("auth")
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+/// Fatores MFA permanentes (TOTP, WebAuthn, SMS, etc.)
+model MfaFactor {
+  factorId   Int      @id @default(autoincrement()) @map("factor_id")
+  userId     Int     @map("user_id")
+  type       String  @db.VarChar(50) // Ex: TOTP, WebAuthn, SMS
+  label      String? @db.VarChar(100)
+  secret     String? @db.VarChar(255) // Encriptado
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("tbl_mfa_factors")
+  @@schema("auth")
+  @@index([userId])
+  @@index([type])
+}
+
+/// Logs de auditoria do sistema (tracking de todas as mudanças)
+model AuditLog {
+  auditId    Int         @id @default(autoincrement()) @map("audit_id")
+  userId     Int?        @map("user_id")
+  entitySchema String?   @map("entity_schema") @db.VarChar(50)
+  entityTable  String?   @map("entity_table") @db.VarChar(100)
+  entityPk     String?   @map("entity_pk") @db.VarChar(100)
+  tableName  String      @map("table_name") @db.VarChar(100)
+  action     AuditAction // Enum com INSERT, UPDATE, DELETE
+  beforeData Json?       @map("before_data") // Dados antes da mudança
+  afterData  Json?       @map("after_data")  // Dados depois da mudança
+  changedAt  DateTime    @default(now()) @map("changed_at")
+  version    Int         @default(1) // Optimistic concurrency control
+
+  // Relations
+  user User? @relation(fields: [userId], references: [userId], onDelete: SetNull)
+
+  @@map("tbl_audit_logs")
+  @@schema("log")
+  @@index([userId])
+  @@index([tableName])
+  @@index([entitySchema])
+  @@index([entityTable])
+  @@index([entityPk])
+  @@index([action])
+  @@index([changedAt])
 }
