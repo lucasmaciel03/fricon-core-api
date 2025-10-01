@@ -1,0 +1,130 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: fricon-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fricon_core
+      POSTGRES_USER: fricon
+      POSTGRES_PASSWORD: fricon_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    networks:
+      - fricon-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fricon -d fricon_core"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: fricon-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redis_password
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - fricon-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Fricon Core API
+  fricon-core-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fricon-core-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      APP_NAME: Fricon Core API
+      DATABASE_URL: postgresql://fricon:fricon_password@postgres:5432/fricon_core
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis_password
+      CORS_ORIGINS: http://localhost:3001,http://localhost:8080
+      ALLOW_DATA_WIPE: 0
+      DRY_RUN: 0
+    ports:
+      - "3000:3000"
+    networks:
+      - fricon-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/v1/health/live || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./logs:/app/logs
+
+  # PgAdmin (Database Management UI) - Optional
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: fricon-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@fricon.com
+      PGADMIN_DEFAULT_PASSWORD: admin_password
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    networks:
+      - fricon-network
+    depends_on:
+      - postgres
+    profiles:
+      - tools
+
+  # Redis Commander (Redis Management UI) - Optional  
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: fricon-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:redis_password
+      HTTP_USER: admin
+      HTTP_PASSWORD: admin_password
+    ports:
+      - "8081:8081"
+    networks:
+      - fricon-network
+    depends_on:
+      - redis
+    profiles:
+      - tools
+
+networks:
+  fricon-network:
+    driver: bridge
+    name: fricon-network
+
+volumes:
+  postgres_data:
+    name: fricon_postgres_data
+  redis_data:
+    name: fricon_redis_data
+  pgadmin_data:
+    name: fricon_pgadmin_data
