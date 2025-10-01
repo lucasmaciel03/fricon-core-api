@@ -2,14 +2,15 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { Logger } from 'nestjs-pino';
-import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { createFastifyAdapter } from './config/fastify.config';
-import { getSecurityConfig, getCorsConfig, helmetConfig } from './config/security.config';
+import {
+  getSecurityConfig,
+  getCorsConfig,
+  helmetConfig,
+} from './config/security.config';
 import { createValidationPipe } from './config/validation.config';
-import { SanitizeInterceptor } from './common/interceptors/sanitize.interceptor';
 
 async function bootstrap() {
   const fastifyAdapter = createFastifyAdapter();
@@ -36,19 +37,17 @@ async function bootstrap() {
   });
 
   // Configurar filtros globais e logger
-  app.useGlobalFilters(new AllExceptionsFilter(), new PrismaExceptionFilter());
+  // app.useGlobalFilters(new AllExceptionsFilter(), new PrismaExceptionFilter());
   app.useLogger(app.get(Logger));
 
   // Configurar interceptors globais
-  app.useGlobalInterceptors(new SanitizeInterceptor());
+  // app.useGlobalInterceptors(new SanitizeInterceptor());
 
   // Configurar CORS com lista branca
   app.enableCors(corsConfig);
 
   // Configurar prefixo global e versionamento
-  app.setGlobalPrefix('api', {
-    exclude: ['/health', '/docs', '/docs-json'],
-  });
+  app.setGlobalPrefix('api');
   app.enableVersioning({
     type: VersioningType.URI,
     defaultVersion: '1',
