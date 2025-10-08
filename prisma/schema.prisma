@@ -372,7 +372,7 @@ model UserSetor {
 model LoginAttempt {
   attemptId     Int      @id @default(autoincrement()) @map("attempt_id")
   userId        Int?     @map("user_id")
-  attemptAt     DateTime @default(now()) @map("attempt_at")
+  attemptAt     DateTime @default(now()) @map("attempt_at") @db.Timestamptz(3)
   isSuccessful  Boolean  @map("is_successful")
   action        String   @db.VarChar(100)
   ipAddress     String   @map("ip_address") @db.VarChar(45) // IPv4/IPv6 compatível
@@ -397,7 +397,7 @@ model UserActivityLog {
   action     String   @db.VarChar(200)
   entityId   Int?     @map("entity_id")
   entityType String?  @map("entity_type") @db.VarChar(100)
-  actionAt   DateTime @default(now()) @map("action_at")
+  actionAt   DateTime @default(now()) @map("action_at") @db.Timestamptz(3)
   ipAddress  String   @map("ip_address") @db.VarChar(45)
   sessionId  String?  @map("session_id")
   correlationId String? @map("correlation_id") @db.VarChar(100)
@@ -420,7 +420,7 @@ model PasswordResetLog {
   resetId    Int      @id @default(autoincrement()) @map("reset_id")
   userId     Int      @map("user_id")
   resetToken String   @map("reset_token") @db.VarChar(255)
-  requestAt  DateTime @default(now()) @map("request_at")
+  requestAt  DateTime @default(now()) @map("request_at") @db.Timestamptz(3)
   ipAddress  String   @map("ip_address") @db.VarChar(45)
   userAgent  String?  @map("user_agent") @db.Text
 
@@ -439,7 +439,7 @@ model UserPasswordHistory {
   historyId    Int      @id @default(autoincrement()) @map("history_id")
   userId       Int      @map("user_id")
   passwordHash String   @map("password_hash") @db.VarChar(255)
-  changedAt    DateTime @default(now()) @map("changed_at")
+  changedAt    DateTime @default(now()) @map("changed_at") @db.Timestamptz(3)
 
   // Relations
   user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
@@ -455,14 +455,14 @@ model UserSession {
   sessionId String    @id @default(cuid()) @map("session_id")
   userId    Int       @map("user_id")
   jwtId     String    @unique @map("jwt_id") @db.VarChar(255)
-  loginAt   DateTime  @default(now()) @map("login_at")
-  logoutAt  DateTime? @map("logout_at")
+  loginAt   DateTime  @default(now()) @map("login_at") @db.Timestamptz(3)
+  logoutAt  DateTime? @map("logout_at") @db.Timestamptz(3)
   isRevoked Boolean   @default(false) @map("is_revoked")
   ipAddress String    @map("ip_address") @db.VarChar(45)
   userAgent String?   @map("user_agent") @db.Text
   refreshTokenHash String? @map("refresh_token_hash") @db.VarChar(255)
   rotatedFromJti String? @map("rotated_from_jti") @db.VarChar(255)
-  expiresAt DateTime? @map("expires_at")
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(3)
 
   // Relations
   user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
@@ -483,8 +483,8 @@ model MfaToken {
   mfaId     Int      @id @default(autoincrement()) @map("mfa_id")
   userId    Int      @map("user_id")
   token     String   @unique @db.VarChar(255) // Único para evitar colisões
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   // Relations
   user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
@@ -526,7 +526,7 @@ model AuditLog {
   action     AuditAction // Enum com INSERT, UPDATE, DELETE
   beforeData Json?       @map("before_data") // Dados antes da mudança
   afterData  Json?       @map("after_data")  // Dados depois da mudança
-  changedAt  DateTime    @default(now()) @map("changed_at")
+  changedAt  DateTime    @default(now()) @map("changed_at") @db.Timestamptz(3)
   version    Int         @default(1) // Optimistic concurrency control
 
   // Relations
