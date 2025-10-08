@@ -6,9 +6,9 @@ import {
 } from '@nestjs/common';
 import type { Prisma as PrismaNS } from '../../../generated/prisma';
 // At runtime (compiled to dist), resolve the generated client from project root
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+
 const path = require('node:path');
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+
 const { Prisma } = require(path.resolve(process.cwd(), 'generated/prisma'));
 
 @Catch(Prisma.PrismaClientKnownRequestError)

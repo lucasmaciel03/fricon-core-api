@@ -12,17 +12,17 @@ import { filterXSS } from 'xss';
 export class SanitizeInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
-    
+
     // Sanitizar body da requisição
     if (request.body) {
       request.body = this.sanitizeObject(request.body);
     }
-    
+
     // Sanitizar query parameters
     if (request.query) {
       request.query = this.sanitizeObject(request.query);
     }
-    
+
     // Sanitizar params
     if (request.params) {
       request.params = this.sanitizeObject(request.params);
@@ -44,11 +44,11 @@ export class SanitizeInterceptor implements NestInterceptor {
         stripIgnoreTagBody: ['script'],
       });
     }
-    
+
     if (Array.isArray(obj)) {
       return obj.map((item) => this.sanitizeObject(item));
     }
-    
+
     if (obj && typeof obj === 'object') {
       const sanitized: any = {};
       for (const key in obj) {
@@ -58,7 +58,7 @@ export class SanitizeInterceptor implements NestInterceptor {
       }
       return sanitized;
     }
-    
+
     return obj;
   }
 
@@ -78,11 +78,11 @@ export class SanitizeInterceptor implements NestInterceptor {
         stripIgnoreTagBody: ['script', 'style'],
       });
     }
-    
+
     if (Array.isArray(data)) {
       return data.map((item) => this.sanitizeResponse(item));
     }
-    
+
     if (data && typeof data === 'object') {
       const sanitized: any = {};
       for (const key in data) {
@@ -92,7 +92,7 @@ export class SanitizeInterceptor implements NestInterceptor {
       }
       return sanitized;
     }
-    
+
     return data;
   }
 }

@@ -27,10 +27,9 @@ async function bootstrap() {
   const corsConfig = getCorsConfig(securityConfig.corsOrigins);
 
   // Registrar plugins do Fastify para segurança e compressão
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+
   await app.register(require('@fastify/helmet'), helmetConfig);
 
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   await app.register(require('@fastify/compress'), {
     encodings: ['gzip', 'deflate', 'br'],
     threshold: 1024, // Comprimir apenas arquivos > 1KB

@@ -8,22 +8,28 @@ export interface SecurityConfig {
   enableDetailedErrors: boolean;
 }
 
-export function getSecurityConfig(configService: ConfigService): SecurityConfig {
+export function getSecurityConfig(
+  configService: ConfigService,
+): SecurityConfig {
   const nodeEnv = configService.get<string>('NODE_ENV', 'development');
   const isProduction = nodeEnv === 'production';
-  
+
   // CORS Origins - lista branca baseada em environment
   const corsOriginsEnv = configService.get<string>('CORS_ORIGINS', '');
   const corsOrigins = corsOriginsEnv
-    ? corsOriginsEnv.split(',').map(origin => origin.trim())
+    ? corsOriginsEnv.split(',').map((origin) => origin.trim())
     : isProduction
       ? [] // Em produção, deve ser explicitamente configurado
-      : ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000'];
+      : [
+          'http://localhost:3000',
+          'http://localhost:3001',
+          'http://127.0.0.1:3000',
+        ];
 
   return {
     corsOrigins,
-    maxPayloadSize: isProduction 
-      ? 5 * 1024 * 1024  // 5MB em produção
+    maxPayloadSize: isProduction
+      ? 5 * 1024 * 1024 // 5MB em produção
       : 50 * 1024 * 1024, // 50MB em desenvolvimento
     rateLimitMax: isProduction ? 100 : 1000, // Requests por janela
     rateLimitWindowMs: 15 * 60 * 1000, // 15 minutos

@@ -8,15 +8,15 @@ export function createValidationPipe(): ValidationPipe {
     transformOptions: {
       enableImplicitConversion: true, // Conversão automática de tipos
     },
-    
+
     // Validação agressiva
     whitelist: true, // Remove propriedades não definidas no DTO
     forbidNonWhitelisted: true, // Lança erro se propriedades não permitidas forem enviadas
     forbidUnknownValues: true, // Proíbe valores desconhecidos
-    
+
     // Validação de arrays e objetos aninhados
     validateCustomDecorators: true,
-    
+
     // Configuração de erro personalizada
     exceptionFactory: (validationErrors: ValidationError[] = []) => {
       const errors = flattenValidationErrors(validationErrors);
@@ -27,12 +27,12 @@ export function createValidationPipe(): ValidationPipe {
         timestamp: new Date().toISOString(),
       });
     },
-    
+
     // Validação detalhada
     skipMissingProperties: false,
     skipNullProperties: false,
     skipUndefinedProperties: false,
-    
+
     // Limites de validação
     stopAtFirstError: false, // Retorna todos os erros, não apenas o primeiro
   });
@@ -40,12 +40,12 @@ export function createValidationPipe(): ValidationPipe {
 
 function flattenValidationErrors(validationErrors: ValidationError[]): any {
   const errors: any = {};
-  
+
   validationErrors.forEach((error) => {
     if (error.constraints) {
       errors[error.property] = Object.values(error.constraints);
     }
-    
+
     if (error.children && error.children.length > 0) {
       const childErrors = flattenValidationErrors(error.children);
       Object.keys(childErrors).forEach((key) => {
@@ -53,7 +53,7 @@ function flattenValidationErrors(validationErrors: ValidationError[]): any {
       });
     }
   });
-  
+
   return errors;
 }
 
