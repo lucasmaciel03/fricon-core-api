@@ -5,6 +5,7 @@ import {
   LoginResponseDto,
   RefreshTokenDto,
   RefreshTokenResponseDto,
+  LogoutDto,
 } from './dto';
 import { Public, CurrentUser } from './decorators';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -33,6 +34,22 @@ export class AuthController {
     @Body() refreshTokenDto: RefreshTokenDto,
   ): Promise<RefreshTokenResponseDto> {
     return this.authService.refreshToken(refreshTokenDto.refreshToken);
+  }
+
+  /**
+   * POST /auth/logout
+   * Fazer logout - invalidar refresh token e sessão
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  async logout(
+    @Body() logoutDto: LogoutDto,
+    @CurrentUser() user: any,
+  ): Promise<{ message: string }> {
+    await this.authService.logout(logoutDto.refresh_token, user.userId);
+    return {
+      message: 'Logout realizado com sucesso',
+    };
   }
 
   /**

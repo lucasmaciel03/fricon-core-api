@@ -246,6 +246,53 @@ export class AuthService {
   }
 
   /**
+   * Fazer logout - invalidar refresh token e sessão
+   */
+  async logout(refreshToken: string, userId: number): Promise<void> {
+    try {
+      // 1. Buscar sessão com o refresh token
+      const session = await this.prisma.userSession.findFirst({
+        where: {
+          userId: userId,
+          refreshTokenHash: refreshToken,
+          isRevoked: false,
+        },
+      });
+
+      if (session) {
+        // 2. Marcar sessão como revogada
+        await this.prisma.userSession.update({
+          where: { sessionId: session.sessionId },
+          data: {
+            isRevoked: true,
+            logoutAt: new Date(),
+          },
+        });
+
+        this.logger.log(
+          `Session revoked for user ${userId} (Session ID: ${session.sessionId})`,
+        );
+      } else {
+        // Mesmo que não encontre a sessão, considera logout bem-sucedido
+        this.logger.warn(
+          `Logout attempt for user ${userId} but no active session found`,
+        );
+      }
+
+      // 3. Registar logout
+      await this.recordLoginAttempt(userId, true, 'LOGOUT');
+
+      this.logger.log(`Successful logout for user ${userId}`);
+    } catch (error) {
+      // Registar tentativa de logout falhada
+      await this.recordLoginAttempt(userId, false, 'LOGOUT_FAILED');
+
+      this.logger.error(`Logout failed for user ${userId}:`, error);
+      throw new UnauthorizedException('Erro ao fazer logout');
+    }
+  }
+
+  /**
    * Criar sessão do utilizador
    */
   private async createSession(
