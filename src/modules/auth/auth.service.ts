@@ -5,6 +5,7 @@ import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../core/database/prisma.service';
 import { PasswordNotSetException, UserLockedException } from './exceptions';
 import { LoginDto, LoginResponseDto } from './dto';
+import { RefreshTokenPayload } from './interfaces/jwt-payload.interface';
 
 @Injectable()
 export class AuthService {
@@ -145,6 +146,103 @@ export class AuthService {
     return this.jwtService.sign(payload, {
       expiresIn: this.configService.get('JWT_REFRESH_TOKEN_EXPIRATION') || '7d',
     });
+  }
+
+  /**
+   * Renovar tokens usando refresh token
+   */
+  async refreshToken(refreshToken: string) {
+    try {
+      // 1. Verificar e decodificar refresh token
+      const decoded = this.jwtService.verify(
+        refreshToken,
+      ) as RefreshTokenPayload;
+
+      if (decoded.type !== 'refresh') {
+        throw new UnauthorizedException('Token inválido');
+      }
+
+      // 2. Buscar sessão na base de dados
+      const session = await this.prisma.userSession.findFirst({
+        where: {
+          userId: decoded.sub,
+          refreshTokenHash: refreshToken,
+          isRevoked: false,
+        },
+        include: {
+          user: {
+            include: {
+              userRoles: {
+                include: {
+                  role: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!session) {
+        throw new UnauthorizedException('Sessão inválida ou expirada');
+      }
+
+      // 3. Verificar se o utilizador ainda está ativo
+      if (session.user.userIsLocked) {
+        throw new UnauthorizedException('Conta bloqueada');
+      }
+
+      // 4. Gerar novos tokens (token rotation)
+      const newAccessToken = await this.generateAccessToken(session.user);
+      const newRefreshToken = await this.generateRefreshToken(session.user);
+
+      // 5. Atualizar sessão com novo refresh token
+      await this.prisma.userSession.update({
+        where: { sessionId: session.sessionId },
+        data: {
+          refreshTokenHash: newRefreshToken,
+          rotatedFromJti: session.jwtId,
+        },
+      });
+
+      // 6. Registar a renovação de token
+      await this.recordLoginAttempt(session.userId, true, 'TOKEN_REFRESH');
+
+      // 7. Preparar dados do utilizador
+      const userData = {
+        userId: session.user.userId,
+        username: session.user.username,
+        email: session.user.email,
+        firstname: session.user.firstname,
+        lastname: session.user.lastname,
+        roles: session.user.userRoles.map((ur) => ur.role.roleName),
+      };
+
+      return {
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+        tokenType: 'Bearer',
+        expiresIn: 15 * 60, // 15 minutos em segundos
+        user: userData,
+      };
+    } catch (error) {
+      // Registar tentativa falhada se conseguirmos identificar o utilizador
+      try {
+        const decoded = this.jwtService.decode(
+          refreshToken,
+        ) as RefreshTokenPayload | null;
+        if (decoded?.sub) {
+          await this.recordLoginAttempt(
+            decoded.sub,
+            false,
+            'TOKEN_REFRESH_FAILED',
+          );
+        }
+      } catch {
+        // Ignorar erro de decodificação se token estiver muito corrompido
+      }
+
+      throw new UnauthorizedException('Refresh token inválido ou expirado');
+    }
   }
 
   /**
