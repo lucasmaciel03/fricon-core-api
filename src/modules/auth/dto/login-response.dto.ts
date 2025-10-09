@@ -5,8 +5,8 @@ export class LoginResponseDto {
     userId: number;
     username: string;
     email: string | null;
-    firstname: string;
-    lastname: string;
+    firstName: string | null;
+    lastName: string | null;
     roles: string[];
   };
 }

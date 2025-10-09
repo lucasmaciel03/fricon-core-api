@@ -6,6 +6,8 @@ import {
   RefreshTokenDto,
   RefreshTokenResponseDto,
   LogoutDto,
+  ChangePasswordDto,
+  SetFirstPasswordDto,
 } from './dto';
 import { Public, CurrentUser } from './decorators';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -50,6 +52,42 @@ export class AuthController {
     return {
       message: 'Logout realizado com sucesso',
     };
+  }
+
+  /**
+   * POST /auth/change-password
+   * Alterar password do utilizador autenticado
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  async changePassword(
+    @Body() changePasswordDto: ChangePasswordDto,
+    @CurrentUser() user: any,
+  ): Promise<{ message: string }> {
+    await this.authService.changePassword(
+      user.userId,
+      changePasswordDto.currentPassword,
+      changePasswordDto.newPassword,
+      changePasswordDto.confirmPassword,
+    );
+
+    return {
+      message: 'Password alterada com sucesso',
+    };
+  }
+
+  /**
+   * POST /auth/set-first-password
+   * Definir primeira password para utilizador sem password
+   */
+  @Public()
+  @Post('set-first-password')
+  async setFirstPassword(@Body() setFirstPasswordDto: SetFirstPasswordDto) {
+    return this.authService.setFirstPassword(
+      setFirstPasswordDto.username,
+      setFirstPasswordDto.newPassword,
+      setFirstPasswordDto.confirmPassword,
+    );
   }
 
   /**

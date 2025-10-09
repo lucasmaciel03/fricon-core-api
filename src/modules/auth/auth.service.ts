@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
@@ -6,6 +11,7 @@ import { PrismaService } from '../../core/database/prisma.service';
 import { PasswordNotSetException, UserLockedException } from './exceptions';
 import { LoginDto, LoginResponseDto } from './dto';
 import { RefreshTokenPayload } from './interfaces/jwt-payload.interface';
+import { UserWithRelations } from './types/user.type';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +28,10 @@ export class AuthService {
    * Validar credenciais do utilizador
    * Retorna o utilizador se válido, null caso contrário
    */
-  async validateUser(identifier: string, password: string) {
+  async validateUser(
+    identifier: string,
+    password: string,
+  ): Promise<UserWithRelations | null> {
     // Buscar utilizador por username ou email
     const user = await this.usersService.findByUsernameOrEmail(identifier);
 
@@ -111,8 +120,8 @@ export class AuthService {
         userId: user.userId,
         username: user.username,
         email: user.email,
-        firstname: user.firstname,
-        lastname: user.lastname,
+        firstName: user.firstName,
+        lastName: user.lastName,
         roles,
       },
     };
@@ -212,8 +221,8 @@ export class AuthService {
         userId: session.user.userId,
         username: session.user.username,
         email: session.user.email,
-        firstname: session.user.firstname,
-        lastname: session.user.lastname,
+        firstName: session.user.firstName,
+        lastName: session.user.lastName,
         roles: session.user.userRoles.map((ur) => ur.role.roleName),
       };
 
@@ -293,6 +302,114 @@ export class AuthService {
   }
 
   /**
+   * Alterar password do utilizador
+   */
+  async changePassword(
+    userId: number,
+    currentPassword: string | undefined,
+    newPassword: string,
+    confirmPassword: string,
+  ): Promise<void> {
+    try {
+      // 1. Validar confirmação de password
+      if (newPassword !== confirmPassword) {
+        throw new UnauthorizedException(
+          'Nova password e confirmação não coincidem',
+        );
+      }
+
+      // 2. Buscar utilizador
+      const user = await this.usersService.findById(userId);
+
+      if (!user) {
+        throw new UnauthorizedException('Utilizador não encontrado');
+      }
+
+      // 3. Verificar se utilizador está bloqueado
+      if (user.userIsLocked) {
+        throw new UnauthorizedException('Conta bloqueada');
+      }
+
+      // 4. Verificar se é primeiro acesso (sem password definida)
+      const isFirstTimeSetup = !user.passwordHash;
+
+      if (!isFirstTimeSetup) {
+        // Utilizador já tem password - validar password atual
+        if (!currentPassword) {
+          throw new UnauthorizedException('Password atual é obrigatória');
+        }
+
+        const isCurrentPasswordValid = await this.usersService.validatePassword(
+          currentPassword,
+          user.passwordHash,
+        );
+
+        if (!isCurrentPasswordValid) {
+          this.logger.warn(
+            `Invalid current password attempt for user: ${user.username} (ID: ${user.userId})`,
+          );
+
+          // Registar tentativa falhada
+          await this.recordLoginAttempt(
+            userId,
+            false,
+            'CHANGE_PASSWORD_FAILED',
+          );
+
+          throw new UnauthorizedException('Password atual incorreta');
+        }
+      } else {
+        // Primeiro acesso - currentPassword não é necessária
+        this.logger.log(
+          `First-time password setup for user: ${user.username} (ID: ${user.userId})`,
+        );
+      }
+
+      // 5. Definir nova password
+      await this.usersService.updatePassword(userId, newPassword);
+
+      // 6. Se não é primeiro acesso, invalidar todas as sessões ativas (exceto a atual seria ideal)
+      if (!isFirstTimeSetup) {
+        await this.prisma.userSession.updateMany({
+          where: {
+            userId: userId,
+            isRevoked: false,
+          },
+          data: {
+            isRevoked: true,
+            logoutAt: new Date(),
+          },
+        });
+
+        this.logger.log(
+          `All sessions invalidated for user ${userId} after password change`,
+        );
+      }
+
+      // 7. Registar mudança de password
+      await this.recordLoginAttempt(
+        userId,
+        true,
+        isFirstTimeSetup ? 'FIRST_PASSWORD_SET' : 'PASSWORD_CHANGED',
+      );
+
+      this.logger.log(
+        `Password ${isFirstTimeSetup ? 'set for first time' : 'changed'} for user ${userId}`,
+      );
+    } catch (error) {
+      // Registar tentativa falhada
+      await this.recordLoginAttempt(userId, false, 'CHANGE_PASSWORD_FAILED');
+
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+
+      this.logger.error(`Change password failed for user ${userId}:`, error);
+      throw new UnauthorizedException('Erro ao alterar password');
+    }
+  }
+
+  /**
    * Criar sessão do utilizador
    */
   private async createSession(
@@ -331,6 +448,49 @@ export class AuthService {
         attemptAt: new Date(),
       },
     });
+  }
+
+  /**
+   * Definir primeira password para utilizador sem password
+   */
+  async setFirstPassword(
+    username: string,
+    newPassword: string,
+    confirmPassword: string,
+  ) {
+    this.logger.log(`Setting first password for user: ${username}`);
+
+    // Validar que as passwords coincidem
+    if (newPassword !== confirmPassword) {
+      throw new BadRequestException('As passwords não coincidem');
+    }
+
+    // Procurar utilizador por username
+    const user = (await this.usersService.findByUsername(
+      username,
+    )) as UserWithRelations | null;
+    if (!user) {
+      throw new UnauthorizedException('Utilizador não encontrado');
+    }
+
+    // Verificar se o utilizador já tem password
+    if (user.passwordHash) {
+      throw new BadRequestException(
+        'Utilizador já tem password definida. Use o endpoint de change-password.',
+      );
+    }
+
+    // Definir nova password
+    await this.usersService.updatePassword(user.userId, newPassword);
+
+    this.logger.log(
+      `First password set successfully for user: ${username} (ID: ${user.userId})`,
+    );
+
+    return {
+      message: 'Password definida com sucesso',
+      success: true,
+    };
   }
 
   /**
