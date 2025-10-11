@@ -9,7 +9,11 @@ export class PasswordPolicyService {
   /**
    * Verificar se a password já foi usada nas últimas N passwords
    */
-  async isPasswordReused(userId: number, newPassword: string, lastCount = 5): Promise<boolean> {
+  async isPasswordReused(
+    userId: number,
+    newPassword: string,
+    lastCount = 5,
+  ): Promise<boolean> {
     try {
       // Buscar as últimas passwords do utilizador
       const passwordHistory = await this.prisma.userPasswordHistory.findMany({
@@ -21,7 +25,10 @@ export class PasswordPolicyService {
 
       // Verificar se a nova password é igual a alguma das anteriores
       for (const historicPassword of passwordHistory) {
-        const isMatch = await bcrypt.compare(newPassword, historicPassword.passwordHash);
+        const isMatch = await bcrypt.compare(
+          newPassword,
+          historicPassword.passwordHash,
+        );
         if (isMatch) {
           return true; // Password já foi usada
         }
@@ -65,7 +72,11 @@ export class PasswordPolicyService {
 
     // Penalizar sequências e repetições
     if (/(.)\1{2,}/.test(password)) score -= 10; // Repetições
-    if (/(?:abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|123|234|345|456|567|678|789|890)/i.test(password)) {
+    if (
+      /(?:abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|123|234|345|456|567|678|789|890)/i.test(
+        password,
+      )
+    ) {
       score -= 10; // Sequências
     }
 
@@ -129,12 +140,16 @@ export class PasswordPolicyService {
     // Verificar se foi reutilizada
     const isReused = await this.isPasswordReused(userId, password);
     if (isReused) {
-      errors.push('Esta password já foi usada recentemente. Escolha uma password diferente.');
+      errors.push(
+        'Esta password já foi usada recentemente. Escolha uma password diferente.',
+      );
     }
 
     // Verificar força mínima
     if (strength.score < 50) {
-      errors.push(`Password é muito ${strength.level.toLowerCase()}. Escolha uma password mais forte.`);
+      errors.push(
+        `Password é muito ${strength.level.toLowerCase()}. Escolha uma password mais forte.`,
+      );
     }
 
     return {

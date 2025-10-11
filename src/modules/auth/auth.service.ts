@@ -370,10 +370,11 @@ export class AuthService {
       }
 
       // 5. Validar política de password
-      const policyValidation = await this.passwordPolicyService.validatePasswordPolicy(
-        userId,
-        newPassword,
-      );
+      const policyValidation =
+        await this.passwordPolicyService.validatePasswordPolicy(
+          userId,
+          newPassword,
+        );
 
       if (!policyValidation.isValid) {
         this.logger.warn(

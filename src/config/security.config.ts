@@ -16,15 +16,18 @@ export function getSecurityConfig(
 
   // CORS Origins - lista branca baseada em environment
   const corsOriginsEnv = configService.get<string>('CORS_ORIGINS', '');
-  const corsOrigins = corsOriginsEnv
-    ? corsOriginsEnv.split(',').map((origin) => origin.trim())
-    : isProduction
-      ? [] // Em produção, deve ser explicitamente configurado
-      : [
-          'http://localhost:3000',
-          'http://localhost:3001',
-          'http://127.0.0.1:3000',
-        ];
+  const corsOrigins =
+    corsOriginsEnv === '*'
+      ? ['*'] // Permitir todas as origens
+      : corsOriginsEnv
+        ? corsOriginsEnv.split(',').map((origin) => origin.trim())
+        : isProduction
+          ? [] // Em produção, deve ser explicitamente configurado
+          : [
+              'http://localhost:3000',
+              'http://localhost:3001',
+              'http://127.0.0.1:3000',
+            ];
 
   return {
     corsOrigins,
@@ -39,7 +42,11 @@ export function getSecurityConfig(
 
 export function getCorsConfig(corsOrigins: string[]) {
   return {
-    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    origin: corsOrigins.includes('*')
+      ? true
+      : corsOrigins.length > 0
+        ? corsOrigins
+        : true,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
