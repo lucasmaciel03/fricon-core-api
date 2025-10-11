@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuditService } from '../../common/services/audit.service';
+import { PasswordPolicyService } from '../../common/services/password-policy.service';
 import { PasswordNotSetException, UserLockedException } from './exceptions';
 import { LoginDto, LoginResponseDto } from './dto';
 import { RefreshTokenPayload } from './interfaces/jwt-payload.interface';
@@ -24,6 +25,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    private readonly passwordPolicyService: PasswordPolicyService,
   ) {}
 
   /**
@@ -367,7 +369,24 @@ export class AuthService {
         );
       }
 
-      // 5. Definir nova password
+      // 5. Validar política de password
+      const policyValidation = await this.passwordPolicyService.validatePasswordPolicy(
+        userId,
+        newPassword,
+      );
+
+      if (!policyValidation.isValid) {
+        this.logger.warn(
+          `Password policy validation failed for user ${userId}: ${policyValidation.errors.join(', ')}`,
+        );
+        throw new BadRequestException(policyValidation.errors.join(' '));
+      }
+
+      this.logger.log(
+        `Password strength for user ${userId}: ${policyValidation.strength.level} (${policyValidation.strength.score}/100)`,
+      );
+
+      // 6. Definir nova password
       await this.usersService.updatePassword(userId, newPassword);
 
       // 6. Se não é primeiro acesso, invalidar todas as sessões ativas (exceto a atual seria ideal)

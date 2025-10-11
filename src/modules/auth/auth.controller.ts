@@ -12,7 +12,10 @@ import {
 } from './dto';
 import { Public, CurrentUser } from './decorators';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { AuditAction, AuditEntity } from '../../common/interceptors/audit.interceptor';
+import {
+  AuditAction,
+  AuditEntity,
+} from '../../common/interceptors/audit.interceptor';
 
 @Controller('auth')
 export class AuthController {

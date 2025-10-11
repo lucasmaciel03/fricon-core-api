@@ -1,5 +1,6 @@
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsStrongPassword } from '../../../common/validators/strong-password.validator';
 
 export class SetFirstPasswordDto {
   @ApiProperty({
@@ -11,22 +12,29 @@ export class SetFirstPasswordDto {
   username: string;
 
   @ApiProperty({
-    description: 'New password to set',
-    example: 'myFirstPassword123',
-    minLength: 6,
+    description:
+      'New strong password (8+ chars, uppercase, lowercase, number, symbol)',
+    example: 'MyFirstPassword123!',
+    minLength: 8,
   })
   @IsString()
   @IsNotEmpty()
-  @MinLength(6, { message: 'Password deve ter pelo menos 6 caracteres' })
+  @IsStrongPassword({
+    message:
+      'Password deve ter pelo menos 8 caracteres, incluindo maiúscula, minúscula, número e símbolo especial',
+  })
   newPassword: string;
 
   @ApiProperty({
     description: 'Confirmation of new password',
-    example: 'myFirstPassword123',
-    minLength: 6,
+    example: 'MyFirstPassword123!',
+    minLength: 8,
   })
   @IsString()
   @IsNotEmpty()
-  @MinLength(6, { message: 'Confirmação deve ter pelo menos 6 caracteres' })
+  @IsStrongPassword({
+    message:
+      'Confirmação deve ter pelo menos 8 caracteres, incluindo maiúscula, minúscula, número e símbolo especial',
+  })
   confirmPassword: string;
 }

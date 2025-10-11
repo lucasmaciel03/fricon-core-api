@@ -1,35 +1,42 @@
-import { IsNotEmpty, IsString, MinLength, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsStrongPassword } from '../../../common/validators/strong-password.validator';
 
 export class ChangePasswordDto {
   @ApiPropertyOptional({
     description:
       'Current password (required only if user already has a password set)',
-    example: 'currentPassword123',
-    minLength: 6,
+    example: 'MyCurrentPass123!',
+    minLength: 8,
   })
   @IsOptional()
   @IsString()
-  @MinLength(6, { message: 'Password atual deve ter pelo menos 6 caracteres' })
   currentPassword?: string;
 
   @ApiProperty({
-    description: 'New password',
-    example: 'newPassword123',
-    minLength: 6,
+    description:
+      'New strong password (8+ chars, uppercase, lowercase, number, symbol)',
+    example: 'MyNewPassword123!',
+    minLength: 8,
   })
   @IsString()
   @IsNotEmpty()
-  @MinLength(6, { message: 'Nova password deve ter pelo menos 6 caracteres' })
+  @IsStrongPassword({
+    message:
+      'Password deve ter pelo menos 8 caracteres, incluindo maiúscula, minúscula, número e símbolo especial',
+  })
   newPassword: string;
 
   @ApiProperty({
     description: 'Confirmation of new password',
-    example: 'newPassword123',
-    minLength: 6,
+    example: 'MyNewPassword123!',
+    minLength: 8,
   })
   @IsString()
   @IsNotEmpty()
-  @MinLength(6, { message: 'Confirmação deve ter pelo menos 6 caracteres' })
+  @IsStrongPassword({
+    message:
+      'Confirmação deve ter pelo menos 8 caracteres, incluindo maiúscula, minúscula, número e símbolo especial',
+  })
   confirmPassword: string;
 }

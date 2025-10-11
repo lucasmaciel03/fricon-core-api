@@ -16,8 +16,10 @@ export const AUDIT_ACTION_KEY = 'audit_action';
 export const AUDIT_ENTITY_KEY = 'audit_entity';
 
 // Decorators para marcar endpoints que devem ser auditados
-export const AuditAction = (action: string) => SetMetadata(AUDIT_ACTION_KEY, action);
-export const AuditEntity = (entityType: string) => SetMetadata(AUDIT_ENTITY_KEY, entityType);
+export const AuditAction = (action: string) =>
+  SetMetadata(AUDIT_ACTION_KEY, action);
+export const AuditEntity = (entityType: string) =>
+  SetMetadata(AUDIT_ENTITY_KEY, entityType);
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
@@ -43,7 +45,7 @@ export class AuditInterceptor implements NestInterceptor {
     // Extrair informações do utilizador do JWT (se autenticado)
     const user = (request as any).user;
     const userId = user?.userId || user?.sub;
-    
+
     // Extrair informações da request
     const ipAddress = this.getClientIp(request);
     const userAgent = request.headers['user-agent'];
@@ -93,8 +95,8 @@ export class AuditInterceptor implements NestInterceptor {
 
     if (xForwardedFor) {
       // x-forwarded-for pode ter múltiplos IPs separados por vírgula
-      const ips = Array.isArray(xForwardedFor) 
-        ? xForwardedFor[0] 
+      const ips = Array.isArray(xForwardedFor)
+        ? xForwardedFor[0]
         : xForwardedFor.toString();
       return ips.split(',')[0].trim();
     }
