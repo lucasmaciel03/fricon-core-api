@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../core/database/prisma.service';
+import { AuditService } from '../../common/services/audit.service';
 import { PasswordNotSetException, UserLockedException } from './exceptions';
 import { LoginDto, LoginResponseDto } from './dto';
 import { RefreshTokenPayload } from './interfaces/jwt-payload.interface';
@@ -22,6 +23,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -490,6 +492,44 @@ export class AuthService {
     return {
       message: 'Password definida com sucesso',
       success: true,
+    };
+  }
+
+  /**
+   * Obter perfil completo do utilizador autenticado
+   */
+  async getUserProfile(userId: number) {
+    this.logger.log(`Getting user profile for user ID: ${userId}`);
+
+    const user = (await this.usersService.findById(userId)) as any;
+    if (!user) {
+      throw new UnauthorizedException('Utilizador não encontrado');
+    }
+
+    return {
+      message: 'Perfil do utilizador obtido com sucesso',
+      user: {
+        userId: user.userId,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstname || null,
+        lastName: user.lastname || null,
+        phoneNumber: null, // Campo não existe na BD atual
+        userIsLocked: user.userIsLocked,
+        lastLoginAt: user.userLastLogin,
+        passwordChangedAt: null, // Campo não existe na BD atual
+        createdAt: user.userCreatedAt,
+        updatedAt: user.userUpdatedAt,
+        roles: user.userRoles.map((ur) => ur.role.roleName),
+        userStatus: user.userStatus
+          ? {
+              userStatusId: user.userStatus.statusId,
+              statusName: user.userStatus.statusName,
+              statusDescription: user.userStatus.statusDescription,
+              isActive: true, // Campo não existe no userStatus, assumindo true para ACTIVE
+            }
+          : null,
+      },
     };
   }
 

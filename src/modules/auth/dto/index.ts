@@ -5,3 +5,4 @@ export * from './refresh-token-response.dto';
 export * from './logout.dto';
 export * from './change-password.dto';
 export * from './set-first-password.dto';
+export * from './user-profile.dto';

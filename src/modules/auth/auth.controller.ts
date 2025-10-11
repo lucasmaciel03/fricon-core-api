@@ -8,9 +8,11 @@ import {
   LogoutDto,
   ChangePasswordDto,
   SetFirstPasswordDto,
+  UserProfileResponseDto,
 } from './dto';
 import { Public, CurrentUser } from './decorators';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { AuditAction, AuditEntity } from '../../common/interceptors/audit.interceptor';
 
 @Controller('auth')
 export class AuthController {
@@ -22,6 +24,8 @@ export class AuthController {
    */
   @Public()
   @Post('login')
+  @AuditAction('LOGIN')
+  @AuditEntity('USER')
   async login(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
     return this.authService.login(loginDto);
   }
@@ -44,6 +48,8 @@ export class AuthController {
    */
   @UseGuards(JwtAuthGuard)
   @Post('logout')
+  @AuditAction('LOGOUT')
+  @AuditEntity('USER')
   async logout(
     @Body() logoutDto: LogoutDto,
     @CurrentUser() user: any,
@@ -91,15 +97,12 @@ export class AuthController {
   }
 
   /**
-   * GET /auth/profile
-   * Obter perfil do utilizador autenticado (requer JWT)
+   * GET /auth/me
+   * Obter perfil completo do utilizador autenticado (requer JWT)
    */
   @UseGuards(JwtAuthGuard)
-  @Get('profile')
-  async getProfile(@CurrentUser() user: any) {
-    return {
-      message: 'Profile do utilizador autenticado',
-      user,
-    };
+  @Get('me')
+  async getMe(@CurrentUser() user: any): Promise<UserProfileResponseDto> {
+    return this.authService.getUserProfile(user.userId);
   }
 }
