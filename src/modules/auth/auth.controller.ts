@@ -1,5 +1,7 @@
-import { Controller, Post, Body, Get, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { RefreshService } from './refresh.service';
+import type { FastifyRequest } from 'fastify';
 import {
   LoginDto,
   LoginResponseDto,
@@ -19,7 +21,10 @@ import {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly refreshService: RefreshService,
+  ) {}
 
   /**
    * POST /auth/login
@@ -29,8 +34,14 @@ export class AuthController {
   @Post('login')
   @AuditAction('LOGIN')
   @AuditEntity('USER')
-  async login(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
-    return this.authService.login(loginDto);
+  async login(
+    @Body() loginDto: LoginDto,
+    @Req() request: FastifyRequest,
+  ): Promise<LoginResponseDto> {
+    const ipAddress = this.getClientIp(request);
+    const userAgent = request.headers['user-agent'];
+
+    return this.authService.login(loginDto, ipAddress, userAgent);
   }
 
   /**
@@ -41,8 +52,16 @@ export class AuthController {
   @Post('refresh')
   async refresh(
     @Body() refreshTokenDto: RefreshTokenDto,
+    @Req() request: FastifyRequest,
   ): Promise<RefreshTokenResponseDto> {
-    return this.authService.refreshToken(refreshTokenDto.refreshToken);
+    const ipAddress = this.getClientIp(request);
+    const userAgent = request.headers['user-agent'];
+
+    return this.refreshService.refreshToken(
+      refreshTokenDto,
+      ipAddress,
+      userAgent,
+    );
   }
 
   /**
@@ -107,5 +126,17 @@ export class AuthController {
   @Get('me')
   async getMe(@CurrentUser() user: any): Promise<UserProfileResponseDto> {
     return this.authService.getUserProfile(user.userId);
+  }
+
+  /**
+   * Obter IP do cliente
+   */
+  private getClientIp(request: FastifyRequest): string {
+    return (
+      (request.headers['x-forwarded-for'] as string) ||
+      (request.headers['x-real-ip'] as string) ||
+      request.ip ||
+      '127.0.0.1'
+    );
   }
 }

@@ -30,6 +30,10 @@ async function bootstrap() {
 
   await app.register(require('@fastify/helmet'), helmetConfig);
 
+  await app.register(require('@fastify/cookie'), {
+    secret: configService.get<string>('JWT_SECRET'), // Chave para assinar cookies
+  });
+
   await app.register(require('@fastify/compress'), {
     encodings: ['gzip', 'deflate', 'br'],
     threshold: 1024, // Comprimir apenas arquivos > 1KB

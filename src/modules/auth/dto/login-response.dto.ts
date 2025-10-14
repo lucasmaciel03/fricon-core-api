@@ -1,6 +1,10 @@
 export class LoginResponseDto {
   accessToken: string;
-  refreshToken?: string;
+  refreshToken: string;
+  tokenType = 'Bearer' as const;
+  expiresIn: number; // Tempo de expiração do access token em segundos
+  refreshExpiresIn: number; // Tempo de expiração do refresh token em segundos
+  rememberMe: boolean; // Indica se foi usado "Remember me"
   user: {
     userId: number;
     username: string;

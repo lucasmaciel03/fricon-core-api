@@ -10,6 +10,7 @@ import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../core/database/prisma.service';
 import { AuditService } from '../../common/services/audit.service';
 import { PasswordPolicyService } from '../../common/services/password-policy.service';
+import { RefreshTokenService } from '../../common/services/refresh-token.service';
 import { PasswordNotSetException, UserLockedException } from './exceptions';
 import { LoginDto, LoginResponseDto } from './dto';
 import { RefreshTokenPayload } from './interfaces/jwt-payload.interface';
@@ -26,6 +27,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly passwordPolicyService: PasswordPolicyService,
+    private readonly refreshTokenService: RefreshTokenService,
   ) {}
 
   /**
@@ -91,7 +93,11 @@ export class AuthService {
   /**
    * Fazer login e retornar tokens
    */
-  async login(loginDto: LoginDto): Promise<LoginResponseDto> {
+  async login(
+    loginDto: LoginDto,
+    ipAddress: string,
+    userAgent?: string,
+  ): Promise<LoginResponseDto> {
     const user = await this.validateUser(
       loginDto.identifier,
       loginDto.password,
@@ -107,19 +113,33 @@ export class AuthService {
     // Atualizar último login
     await this.usersService.updateLastLogin(user.userId);
 
-    // Gerar tokens
-    const accessToken = await this.generateAccessToken(user);
-    const refreshToken = await this.generateRefreshToken(user);
+    // Gerar access token
+    const accessToken = this.generateAccessToken(user);
 
-    // Criar sessão
-    await this.createSession(user.userId, accessToken, refreshToken);
+    // Criar refresh token
+    const refreshTokenInfo = await this.refreshTokenService.createRefreshToken({
+      userId: user.userId,
+      rememberMe: loginDto.rememberMe || false,
+      ipAddress,
+      userAgent,
+    });
 
     // Extrair roles
     const roles = user.userRoles.map((ur) => ur.role.roleName);
 
+    // Calcular tempos de expiração
+    const accessTokenExpiration = this.getAccessTokenExpiration();
+    const refreshTokenExpiration = this.refreshTokenService.getExpirationTime(
+      loginDto.rememberMe || false,
+    );
+
     return {
       accessToken,
-      refreshToken,
+      refreshToken: refreshTokenInfo.token,
+      tokenType: 'Bearer' as const,
+      expiresIn: accessTokenExpiration,
+      refreshExpiresIn: refreshTokenExpiration,
+      rememberMe: loginDto.rememberMe || false,
       user: {
         userId: user.userId,
         username: user.username,
@@ -132,9 +152,28 @@ export class AuthService {
   }
 
   /**
+   * Obter tempo de expiração do access token em segundos
+   */
+  private getAccessTokenExpiration(): number {
+    const expiration =
+      this.configService.get<string>('JWT_ACCESS_TOKEN_EXPIRATION') || '15m';
+
+    // Converter string de tempo para segundos
+    if (expiration.endsWith('m')) {
+      return parseInt(expiration, 10) * 60;
+    } else if (expiration.endsWith('h')) {
+      return parseInt(expiration, 10) * 3600;
+    } else if (expiration.endsWith('d')) {
+      return parseInt(expiration, 10) * 86400;
+    } else {
+      return parseInt(expiration, 10) || 900; // 15 minutos por padrão
+    }
+  }
+
+  /**
    * Gerar Access Token JWT
    */
-  private async generateAccessToken(user: any): Promise<string> {
+  private generateAccessToken(user: any): string {
     const payload = {
       sub: user.userId,
       username: user.username,
