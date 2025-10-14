@@ -89,6 +89,7 @@ model User {
   passwordResetLogs   PasswordResetLog[]
   passwordHistory     UserPasswordHistory[]
   userSessions        UserSession[]
+  refreshTokens       RefreshToken[]
   mfaTokens           MfaToken[]
   mfaFactors          MfaFactor[]
   auditLogs           AuditLog[]
@@ -476,6 +477,33 @@ model UserSession {
   @@index([isRevoked])
   @@index([userId, isRevoked])
   @@index([expiresAt])
+}
+
+/// Refresh Tokens para renovação de access tokens
+model RefreshToken {
+  tokenId   String    @id @default(cuid()) @map("token_id")
+  userId    Int       @map("user_id")
+  tokenHash String    @unique @map("token_hash") @db.VarChar(255)
+  sessionId String?   @map("session_id") // Ligação à sessão
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  isRevoked Boolean   @default(false) @map("is_revoked")
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  ipAddress String    @map("ip_address") @db.VarChar(45)
+  userAgent String?   @map("user_agent") @db.Text
+  rememberMe Boolean  @default(false) @map("remember_me") // Marca se foi criado com "Remember me"
+
+  // Relations
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("tbl_refresh_tokens")
+  @@schema("auth")
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@index([isRevoked])
+  @@index([userId, isRevoked])
+  @@index([sessionId])
 }
 
 /// Tokens MFA temporários (OTP)
