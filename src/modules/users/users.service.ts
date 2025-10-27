@@ -83,6 +83,50 @@ export class UsersService {
   }
 
   /**
+   * Listar todos os utilizadores (com roles)
+   */
+  async findAll() {
+    return this.prisma.user.findMany({
+      include: {
+        userStatus: true,
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Listar utilizadores que possuem a role especificada (roleId ou roleName)
+   */
+  async findByRole(roleIdentifier: string) {
+    // Verifica se é um número (roleId) ou string (roleName)
+    const isNumeric = /^\d+$/.test(roleIdentifier);
+
+    return this.prisma.user.findMany({
+      where: {
+        userRoles: {
+          some: {
+            role: isNumeric
+              ? { roleId: parseInt(roleIdentifier, 10) }
+              : { roleName: roleIdentifier },
+          },
+        },
+      },
+      include: {
+        userStatus: true,
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * Validar password do utilizador
    */
   async validatePassword(
