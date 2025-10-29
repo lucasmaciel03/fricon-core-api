@@ -180,16 +180,11 @@ async function importTeams(data: ExcelRow[]) {
   for (const row of data) {
     try {
       const teamData = {
-        teamName: row.teamName || row.nome || row.Name || row.team_name,
-        teamDescription:
-          row.teamDescription ||
-          row.descricao ||
-          row.Description ||
-          row.team_description,
+        name: row.teamName || row.nome || row.Name || row.team_name,
         factoryId: row.factoryId || row.factory_id || 1, // Default para primeira fábrica
       };
 
-      if (!teamData.teamName) {
+      if (!teamData.name) {
         console.log('⚠️  A saltar equipa sem nome:', row);
         continue;
       }
@@ -198,7 +193,7 @@ async function importTeams(data: ExcelRow[]) {
         data: teamData,
       });
 
-      console.log(`✅ Equipa criada: ${team.teamName} (ID: ${team.teamId})`);
+      console.log(`✅ Equipa criada: ${team.name} (ID: ${team.teamId})`);
     } catch (error) {
       console.error('❌ Erro ao criar equipa:', row, error);
     }
@@ -211,14 +206,11 @@ async function importDepartments(data: ExcelRow[]) {
   for (const row of data) {
     try {
       const deptData = {
-        departmentName:
-          row.departmentName || row.nome || row.Name || row.department_name,
-        departmentDescription:
-          row.departmentDescription || row.descricao || row.Description,
+        name: row.departmentName || row.nome || row.Name || row.department_name,
         factoryId: row.factoryId || row.factory_id || 1,
       };
 
-      if (!deptData.departmentName) {
+      if (!deptData.name) {
         console.log('⚠️  A saltar departamento sem nome:', row);
         continue;
       }
@@ -228,7 +220,7 @@ async function importDepartments(data: ExcelRow[]) {
       });
 
       console.log(
-        `✅ Departamento criado: ${dept.departmentName} (ID: ${dept.departmentId})`,
+        `✅ Departamento criado: ${dept.name} (ID: ${dept.depId})`,
       );
     } catch (error) {
       console.error('❌ Erro ao criar departamento:', row, error);
@@ -242,16 +234,12 @@ async function importWarehouses(data: ExcelRow[]) {
   for (const row of data) {
     try {
       const warehouseData = {
-        warehouseName:
-          row.warehouseName || row.nome || row.Name || row.warehouse_name,
-        warehouseCode:
-          row.warehouseCode || row.codigo || row.Code || row.warehouse_code,
-        warehouseDescription:
-          row.warehouseDescription || row.descricao || row.Description,
+        name: row.warehouseName || row.nome || row.Name || row.warehouse_name,
+        code: row.warehouseCode || row.codigo || row.Code || row.warehouse_code,
         factoryId: row.factoryId || row.factory_id || 1,
       };
 
-      if (!warehouseData.warehouseName) {
+      if (!warehouseData.name) {
         console.log('⚠️  A saltar armazém sem nome:', row);
         continue;
       }
@@ -261,7 +249,7 @@ async function importWarehouses(data: ExcelRow[]) {
       });
 
       console.log(
-        `✅ Armazém criado: ${warehouse.warehouseName} (ID: ${warehouse.warehouseId})`,
+        `✅ Armazém criado: ${warehouse.name} (ID: ${warehouse.warehouseId})`,
       );
     } catch (error) {
       console.error('❌ Erro ao criar armazém:', row, error);
@@ -275,13 +263,11 @@ async function importSetors(data: ExcelRow[]) {
   for (const row of data) {
     try {
       const setorData = {
-        setorName: row.setorName || row.nome || row.Name || row.setor_name,
-        setorDescription:
-          row.setorDescription || row.descricao || row.Description,
+        name: row.setorName || row.nome || row.Name || row.setor_name,
         factoryId: row.factoryId || row.factory_id || 1,
       };
 
-      if (!setorData.setorName) {
+      if (!setorData.name) {
         console.log('⚠️  A saltar setor sem nome:', row);
         continue;
       }
@@ -290,7 +276,7 @@ async function importSetors(data: ExcelRow[]) {
         data: setorData,
       });
 
-      console.log(`✅ Setor criado: ${setor.setorName} (ID: ${setor.setorId})`);
+      console.log(`✅ Setor criado: ${setor.name} (ID: ${setor.setorId})`);
     } catch (error) {
       console.error('❌ Erro ao criar setor:', row, error);
     }
@@ -304,8 +290,7 @@ async function importRoles(data: ExcelRow[]) {
     try {
       const roleData = {
         roleName: row.roleName || row.nome || row.Name || row.role_name,
-        roleDescription:
-          row.roleDescription || row.descricao || row.Description,
+        description: row.roleDescription || row.descricao || row.Description || '',
       };
 
       if (!roleData.roleName) {
