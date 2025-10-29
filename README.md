@@ -68,6 +68,7 @@ This application is configured to run with [PM2](https://pm2.keymetrics.io/), a 
 #### Prerequisites
 
 Make sure PM2 is installed globally:
+
 ```bash
 $ npm install -g pm2
 ```
@@ -109,6 +110,7 @@ $ npm run pm2:delete
 #### PM2 Configuration
 
 The PM2 configuration is defined in `ecosystem.config.js` and includes:
+
 - Health checks every 30 seconds
 - Automatic restarts on crashes
 - Memory limits (1GB)

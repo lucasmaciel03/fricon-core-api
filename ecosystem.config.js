@@ -34,7 +34,7 @@ module.exports = {
         enabled: true,
         url: 'http://localhost:4243/api/v1/health',
         interval: 30000, // 30 segundos
-        timeout: 5000,   // 5 segundos
+        timeout: 5000, // 5 segundos
         retries: 3,
       },
     },
@@ -48,7 +48,8 @@ module.exports = {
       repo: 'git@github.com:lucasmaciel03/fricon-core-api.git',
       path: '/var/www/fricon-core-api',
       'pre-deploy-local': '',
-      'post-deploy': 'npm install && npm run build && pm2 reload ecosystem.config.js --env production',
+      'post-deploy':
+        'npm install && npm run build && pm2 reload ecosystem.config.js --env production',
       'pre-setup': '',
     },
   },
