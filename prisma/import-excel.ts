@@ -219,9 +219,7 @@ async function importDepartments(data: ExcelRow[]) {
         data: deptData,
       });
 
-      console.log(
-        `✅ Departamento criado: ${dept.name} (ID: ${dept.depId})`,
-      );
+      console.log(`✅ Departamento criado: ${dept.name} (ID: ${dept.depId})`);
     } catch (error) {
       console.error('❌ Erro ao criar departamento:', row, error);
     }
@@ -290,7 +288,8 @@ async function importRoles(data: ExcelRow[]) {
     try {
       const roleData = {
         roleName: row.roleName || row.nome || row.Name || row.role_name,
-        description: row.roleDescription || row.descricao || row.Description || '',
+        description:
+          row.roleDescription || row.descricao || row.Description || '',
       };
 
       if (!roleData.roleName) {

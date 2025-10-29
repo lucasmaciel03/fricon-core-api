@@ -61,6 +61,64 @@ $ npm run test:cov
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
+### PM2 Process Management
+
+This application is configured to run with [PM2](https://pm2.keymetrics.io/), a production process manager for Node.js applications.
+
+#### Prerequisites
+
+Make sure PM2 is installed globally:
+```bash
+$ npm install -g pm2
+```
+
+#### Running with PM2
+
+```bash
+# Build the application
+$ npm run build
+
+# Start in production mode
+$ npm run pm2:start
+
+# Start in development mode
+$ npm run pm2:start:dev
+
+# View logs
+$ npm run pm2:logs
+
+# Monitor processes
+$ npm run pm2:monit
+
+# List all processes
+$ npm run pm2:list
+
+# Restart application
+$ npm run pm2:restart
+
+# Reload application (zero-downtime restart)
+$ npm run pm2:reload
+
+# Stop application
+$ npm run pm2:stop
+
+# Delete application from PM2
+$ npm run pm2:delete
+```
+
+#### PM2 Configuration
+
+The PM2 configuration is defined in `ecosystem.config.js` and includes:
+- Health checks every 30 seconds
+- Automatic restarts on crashes
+- Memory limits (1GB)
+- Structured logging to `logs/pm2/`
+- Environment-specific configurations
+
+#### Health Check
+
+The application includes a health check endpoint at `/api/v1/health` that PM2 monitors to ensure the application is running correctly.
+
 If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
 
 ```bash
